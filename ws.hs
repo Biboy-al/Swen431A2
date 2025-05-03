@@ -2,7 +2,7 @@ module Main where
 import System.Environment
 import System.IO  
 import Control.Monad
-import Data.Char (digitToInt)
+import Data.Char (digitToInt, isSpace,isPrint)
 import Text.Parsec.Expr (Operator)
 import Data.List (isInfixOf)
 import Text.Read (Lexeme(String))
@@ -25,14 +25,14 @@ data StackOp = Push Operand
 
 data Stack = Stack [Operand]
         
-
+-- formatFileName (head args)
 main :: IO ()
 main = do 
         args <- getArgs
         contents <- readFile (head args)
-        let newName = formatFileName (head args)
-        let stack = eval (process contents) [] (Stack [])
-        writeFile newName (reverse (printStack stack))
+        let newName = "output.txt"
+        let stack = eval (process (normSpaces contents)) [] (Stack [])
+        writeFile newName (printStack stack  ++ "\n")
         
 
 process :: [Char] -> [Char]
@@ -59,6 +59,8 @@ performOp (Op "SWAP") (Stack (o1:o2:s)) = Stack ( o2:o1:s)
 isOperator :: [Char] -> Bool
 isOperator c = c `elem` ["+","-","*","/","DROP","DUP","SWAP"]
 
+normSpaces:: [Char] -> [Char]
+normSpaces = map (\c -> if isSpace c then ' ' else c)
 
 
 isInt :: String -> Bool
@@ -76,7 +78,11 @@ createOperand n
 -- Prints the stack
 printStack:: Stack -> String
 printStack (Stack []) = "" 
-printStack (Stack (s:sx)) = show s ++ "\n" ++ printStack (Stack sx)
+printStack (Stack (s:sx)) = show s ++ printStack (Stack sx)
+
+
+checkNotSpace:: Char -> Bool
+checkNotSpace c = not (isSpace c)
 
 -- Main Evaluation function for the stack
 -- [Char] is the outputfile
@@ -90,7 +96,7 @@ eval [] op s
                 pushOP = reverse op
 eval (o:ox) op s 
         -- If current char is not a newline or space accumalte
-        | o /= '\n' && o /= ' ' = eval ox (o:op) s
+        | checkNotSpace o = eval ox (o:op) s
         -- If next char, accumalate the op
         | isOperator pushOP = eval ox [] (performOp (Op pushOP) s)
         | otherwise = eval ox [] (performOp (Push (createOperand pushOP) ) s)
