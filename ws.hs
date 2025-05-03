@@ -35,7 +35,7 @@ formatFileName s = "output-"++ drop 1 ( dropWhile (/= '-') s)
 -- Performs operaton on the stack based the command
 performOp:: StackOpe -> Stack -> Stack
 performOp (Push n) (Stack s) = Stack (n : s)
-performOp Add (Stack (o1:o2:s)) = Stack s
+performOp Add (Stack (IntVal o1: IntVal o2:s)) = Stack (IntVal (o1 + o2) : s)
 
 -- Utility functions for checking types
 isOperator :: Char -> Bool
@@ -59,6 +59,6 @@ createOperand n
 eval:: [Char] -> Stack -> Stack
 eval [] s = s
 eval (o:ox) s 
-        -- | isOperator o = eval ox (performOp Add s)
+        | isOperator o = eval ox (performOp Add s)
         | o == '\n' = eval ox s
         | otherwise = eval ox (performOp (Push (createOperand [o]) ) s)
