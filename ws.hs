@@ -6,8 +6,9 @@ import Data.Char (digitToInt)
 import Text.Parsec.Expr (Operator)
 
 data Operand = IntVal Int
-        deriving (Show)
 
+instance Show Operand where
+        show (IntVal n) = show n 
 
 data StackOpe = Push Operand
         | Add 
@@ -15,14 +16,14 @@ data StackOpe = Push Operand
 data Stack = Stack [Operand]
         deriving (Show)
         
+
 main :: IO ()
 main = do 
         args <- getArgs
         contents <- readFile (head args)
         let newName = formatFileName (head args)
         let stack = eval (process contents) (Stack [])
-        print stack
-        --writeFile newName stack
+        writeFile newName (printStack stack)
         
 
 process :: [Char] -> [Char]
@@ -52,6 +53,11 @@ createOperand n
         | isInt n = IntVal (read n)
         | otherwise = IntVal 0
 
+
+-- Prints the stack
+printStack:: Stack -> String
+printStack (Stack []) = "" 
+printStack (Stack (s:sx)) = show s ++ printStack (Stack sx)
 
 -- Main Evaluation function for the stack
 -- [Char] is the outputfile
