@@ -10,8 +10,14 @@ data Operand = IntVal Int
 instance Show Operand where
         show (IntVal n) = show n 
 
-data StackOpe = Push Operand
-        | Add 
+instance Num Operand where
+        IntVal op1 + IntVal op2 = IntVal (op1 + op2)
+        IntVal op1 - IntVal op2 = IntVal (op1 - op2)
+        IntVal op1 * IntVal op2 = IntVal (op1 * op2)
+
+
+data StackOp = Push Operand
+        | Op Char
 
 data Stack = Stack [Operand]
         deriving (Show)
@@ -34,13 +40,19 @@ formatFileName :: String -> String
 formatFileName s = "output-"++ drop 1 ( dropWhile (/= '-') s)
 
 -- Performs operaton on the stack based the command
-performOp:: StackOpe -> Stack -> Stack
+performOp:: StackOp -> Stack -> Stack
 performOp (Push n) (Stack s) = Stack (n : s)
-performOp Add (Stack (IntVal o1: IntVal o2:s)) = Stack (IntVal (o1 + o2) : s)
+performOp (Op '+') (Stack (o1:o2:s)) = Stack (o2 + o1 : s)
+performOp (Op '-') (Stack (o1:o2:s)) = Stack (o2 - o1 : s)
+performOp (Op '*') (Stack (o1:o2:s)) = Stack (o2 * o1 : s)
+performOp (Op '/') (Stack (IntVal o1:IntVal o2:s)) = Stack ( IntVal (o2 `div` o1) : s)
+performOp (Op '%') (Stack (IntVal o1:IntVal o2:s)) = Stack ( IntVal (o2 `mod` o1) : s)
 
 -- Utility functions for checking types
 isOperator :: Char -> Bool
 isOperator c = c `elem` "+-*/"
+
+
 
 isInt :: String -> Bool
 isInt s = case reads s :: [(Int, String)] of
@@ -57,7 +69,7 @@ createOperand n
 -- Prints the stack
 printStack:: Stack -> String
 printStack (Stack []) = "" 
-printStack (Stack (s:sx)) = show s ++ printStack (Stack sx)
+printStack (Stack (s:sx)) = show s ++ "\n" ++ printStack (Stack sx)
 
 -- Main Evaluation function for the stack
 -- [Char] is the outputfile
@@ -65,6 +77,6 @@ printStack (Stack (s:sx)) = show s ++ printStack (Stack sx)
 eval:: [Char] -> Stack -> Stack
 eval [] s = s
 eval (o:ox) s 
-        | isOperator o = eval ox (performOp Add s)
-        | o == '\n' = eval ox s
+        | isOperator o = eval ox (performOp (Op o) s)
+        | o == '\n' || o == ' ' = eval ox s
         | otherwise = eval ox (performOp (Push (createOperand [o]) ) s)
