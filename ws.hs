@@ -2,38 +2,63 @@ module Main where
 import System.Environment
 import System.IO  
 import Control.Monad
+import Data.Char (digitToInt)
+import Text.Parsec.Expr (Operator)
 
-data StackOpe = Push Char
-        | Add
+data Operand = IntVal Int
+        deriving (Show)
+
+
+data StackOpe = Push Operand
+        | Add 
+
+data Stack = Stack [Operand]
+        deriving (Show)
         
 main :: IO ()
 main = do 
         args <- getArgs
         contents <- readFile (head args)
         let newName = formatFileName (head args)
-        let stack = eval (process contents) []
-        writeFile newName stack
+        let stack = eval (process contents) (Stack [])
+        print stack
+        --writeFile newName stack
         
 
 process :: [Char] -> [Char]
-process input = "START\n" ++ input ++ "\nEND"
+process input = input
 
 -- Formats the name of the file to have output at the start
 formatFileName :: String -> String
 formatFileName s = "output-"++ drop 1 ( dropWhile (/= '-') s)
 
 -- Performs operaton on the stack based the command
-performOp:: StackOpe -> [Char] -> [Char]
-performOp (Push n) s = n : s
-performOp Add (o1:o2:s) = o1: o2 : s 
+performOp:: StackOpe -> Stack -> Stack
+performOp (Push n) (Stack s) = Stack (n : s)
+performOp Add (Stack (o1:o2:s)) = Stack s
 
--- Checks if a char is an operator
+-- Utility functions for checking types
 isOperator :: Char -> Bool
 isOperator c = c `elem` "+-*/"
 
+isInt :: String -> Bool
+isInt s = case reads s :: [(Int, String)] of
+        [(n, "")] -> True
+        _         -> False
+
+-- uses guards to create an operator
+createOperand::   [Char] -> Operand
+createOperand n 
+        | isInt n = IntVal (read n)
+        | otherwise = IntVal 0
+
+
 -- Main Evaluation function for the stack
-eval:: [Char] -> [Char] -> [Char]
+-- [Char] is the outputfile
+-- Stack is an array of operands
+eval:: [Char] -> Stack -> Stack
 eval [] s = s
 eval (o:ox) s 
-        | isOperator o = eval ox (performOp Add s)
-        | otherwise = eval ox (performOp (Push o) s)
+        -- | isOperator o = eval ox (performOp Add s)
+        | o == '\n' = eval ox s
+        | otherwise = eval ox (performOp (Push (createOperand [o]) ) s)
