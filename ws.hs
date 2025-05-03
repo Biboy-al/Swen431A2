@@ -32,6 +32,7 @@ main = do
         contents <- readFile (head args)
         let newName = "output.txt"
         let stack = eval (process (normSpaces contents)) [] (Stack [])
+        mapM_ putStrLn  (createToken contents "")
         writeFile newName (printStack stack  ++ "\n")
         
 
@@ -83,6 +84,13 @@ printStack (Stack (s:sx)) = show s ++ printStack (Stack sx)
 
 checkNotSpace:: Char -> Bool
 checkNotSpace c = not (isSpace c)
+
+createToken:: [Char] -> String -> [String]
+createToken [] s = [reverse s]
+createToken (o:ox) s
+        | o /= ' ' && o /= '\n' = createToken ox (o : s) 
+        | otherwise = reverse s : createToken ox []
+
 
 -- Main Evaluation function for the stack
 -- [Char] is the outputfile
