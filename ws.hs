@@ -34,7 +34,7 @@ main = do
         let tokens = tokenize contents ""
         let stack = eval tokens (Stack [])
         -- mapM_ putStrLn  (createToken contents "")
-        writeFile newName (printStack stack  ++ "\n")
+        writeFile newName (printStack (revStack stack) ++ "\n")
         
 
 process :: [Char] -> [Char]
@@ -59,7 +59,7 @@ performOp (Op "SWAP") (Stack (o1:o2:s)) = Stack ( o2:o1:s)
 
 -- Utility functions for checking types
 isOperator :: [Char] -> Bool
-isOperator c = c `elem` ["+","-","*","/","DROP","DUP","SWAP"]
+isOperator c = c `elem` ["+","-","*","**","%","/","DROP","DUP","SWAP"]
 
 normSpaces:: [Char] -> [Char]
 normSpaces = map (\c -> if isSpace c then ' ' else c)
@@ -76,11 +76,13 @@ createOperand n
         | isInt n = IntVal (read n)
         | otherwise = StringVal n
 
+revStack:: Stack -> Stack
+revStack (Stack s) = Stack (reverse s)
 
 -- Prints the stack
 printStack:: Stack -> String
-printStack (Stack []) = "" 
-printStack (Stack (s:sx)) = show s ++ printStack (Stack sx)
+printStack (Stack [s]) = show s
+printStack (Stack (s:sx)) = show s ++ "\n" ++ printStack (Stack sx)
 
 
 checkNotSpace:: Char -> Bool
