@@ -7,24 +7,50 @@ import Text.Parsec.Expr (Operator)
 import Data.List (isInfixOf)
 import Text.Read (Lexeme(String))
 
-
 data Operand = IntVal Int
-        | StringVal [Char]
+        |BoolVal Bool
+        |StringVal [Char]
+
+class OperandOps a where
+        roll:: [a] -> [a]
+        rollD:: [a] -> [a]
+        xor :: a -> a -> Bool
+
+instance OperandOps Operand where
+        roll :: [Operand] -> [Operand]
+        roll s  = reverse (drop 1 revS ++ take 1 revS)
+                where revS = reverse s
+        rollD s  = reverse (drop 1 revS ++ take 1 revS)
+                where revS = reverse s
+        xor (BoolVal o1) (BoolVal o2) = (o1 || o2) && not(o1 && o2)
+        
 
 instance Show Operand where
         show (IntVal n) = show n 
         show (StringVal n) = show n
+        show (BoolVal n) = parseBool n
 
 instance Num Operand where
         IntVal op1 + IntVal op2 = IntVal (op1 + op2)
         IntVal op1 - IntVal op2 = IntVal (op1 - op2)
         IntVal op1 * IntVal op2 = IntVal (op1 * op2)
 
+instance Eq Operand where
+        IntVal op1 == IntVal op2 = op1 == op2
+        IntVal op1 /= IntVal op2 = op1 /= op2
+
+instance Ord Operand where
+        compare (IntVal o1) (IntVal o2) = compare o1 o2
+
 data StackOp = Push Operand
         | Op [Char]
 
 data Stack = Stack [Operand]
-        
+
+parseBool:: Bool -> String
+parseBool b 
+        | b = "true"
+        | not b = "false"
 -- formatFileName (head args)
 main :: IO ()
 main = do 
@@ -56,25 +82,40 @@ performOp (Op "**") (Stack (IntVal o1:IntVal o2:s)) = Stack ( IntVal (o2 ^ o1) :
 performOp (Op "DROP") (Stack (IntVal o1:s)) = Stack s
 performOp (Op "DUP") (Stack (IntVal o1:s)) = Stack (IntVal o1:IntVal o1:s)
 performOp (Op "SWAP") (Stack (o1:o2:s)) = Stack ( o2:o1:s)
-performOp (Op "ROT") (Stack (o1:o2:o3:s)) = Stack ( o2:o3:o1:s)
+performOp (Op "ROT") (Stack s) = Stack (roll(take 3 s) ++ drop 3 s)
+performOp (Op "ROLL") (Stack (IntVal o1:s)) = Stack (roll(take o1 s) ++ drop o1 s)
+performOp (Op "==") (Stack (o1:o2:s)) =  Stack (BoolVal (o2 == o1) : s)
+performOp (Op "!=") (Stack (o1:o2:s)) =  Stack (BoolVal (o2 /= o1) : s)
+performOp (Op "<=") (Stack (o1:o2:s)) =  Stack (BoolVal (o2 <= o1) : s)
+performOp (Op "<") (Stack (o1:o2:s)) =  Stack (BoolVal (o2 < o1) : s)
+performOp (Op ">=") (Stack (o1:o2:s)) =  Stack (BoolVal (o2 >= o1) : s)
+performOp (Op ">") (Stack (o1:o2:s)) =  Stack (BoolVal (o2 > o1) : s)
+performOp (Op "^") (Stack (o1:o2:s)) =  Stack (BoolVal (xor o2 o1) : s)
+performOp (Op "&") (Stack (BoolVal o1:BoolVal o2:s)) =  Stack (BoolVal (o2 && o1) : s)
+performOp (Op "|") (Stack (BoolVal o1:BoolVal o2:s)) =  Stack (BoolVal (o2 || o1) : s)
+
 
 -- Utility functions for checking types
 isOperator :: [Char] -> Bool
-isOperator c = c `elem` ["+","-","*","**","%","/","DROP","DUP","SWAP", "ROT"]
-
-normSpaces:: [Char] -> [Char]
-normSpaces = map (\c -> if isSpace c then ' ' else c)
-
+isOperator c = c `elem` ["+","-","*","**","%","/","DROP","DUP","SWAP", "ROT", "ROLL", "IFELSE",
+        "==", "!=",">","<", ">=","<=","<=>", "&","|"]
 
 isInt :: String -> Bool
 isInt s = case reads s :: [(Int, String)] of
         [(n, "")] -> True
         _         -> False
 
+conBool :: [Char] -> Bool
+conBool b 
+        | b == "true" = True
+        | b == "false" = False
+
+
 -- uses guards to create an operator
 createOperand::   [Char] -> Operand
 createOperand n 
         | isInt n = IntVal (read n)
+        | n == "true" || n == "false" = BoolVal (conBool n)
         | otherwise = StringVal n
 
 revStack:: Stack -> Stack
@@ -90,7 +131,9 @@ checkNotSpace:: Char -> Bool
 checkNotSpace c = not (isSpace c)
 
 tokenize:: [Char] -> String -> [String]
-tokenize [] s = [reverse s]
+tokenize [] s 
+        | null s = []
+        |otherwise =[reverse s]
 tokenize (o:ox) s
         | not (isSpace o) = tokenize ox (o : s) 
         | not (null s) = reverse s : tokenize ox []
@@ -104,7 +147,7 @@ eval:: [String] -> Stack -> Stack
 eval [] s = s
 eval (o:ox)  s 
         -- If current char is not a newline or space accumalte
-        | o == "  " = eval ox s
+        | o == " " && o == "\n" = eval ox s
         -- If next char, accumalate the op
         | isOperator o = eval ox (performOp (Op o) s)
         | otherwise = eval ox  (performOp (Push (createOperand o) ) s)
