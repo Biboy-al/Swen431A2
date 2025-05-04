@@ -56,10 +56,11 @@ performOp (Op "**") (Stack (IntVal o1:IntVal o2:s)) = Stack ( IntVal (o2 ^ o1) :
 performOp (Op "DROP") (Stack (IntVal o1:s)) = Stack s
 performOp (Op "DUP") (Stack (IntVal o1:s)) = Stack (IntVal o1:IntVal o1:s)
 performOp (Op "SWAP") (Stack (o1:o2:s)) = Stack ( o2:o1:s)
+performOp (Op "ROT") (Stack (o1:o2:o3:s)) = Stack ( o2:o3:o1:s)
 
 -- Utility functions for checking types
 isOperator :: [Char] -> Bool
-isOperator c = c `elem` ["+","-","*","**","%","/","DROP","DUP","SWAP"]
+isOperator c = c `elem` ["+","-","*","**","%","/","DROP","DUP","SWAP", "ROT"]
 
 normSpaces:: [Char] -> [Char]
 normSpaces = map (\c -> if isSpace c then ' ' else c)
