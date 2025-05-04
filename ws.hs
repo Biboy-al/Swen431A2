@@ -15,6 +15,8 @@ data Operand = IntVal Int
         |StringVal [Char]
 
 class OperandOps a where
+        divide:: a -> a -> a
+        -- (**):: a -> a -> a
         roll:: [a] -> [a]
         rollD :: [a] -> [a]
         -- xr :: a -> a -> Bool
@@ -22,6 +24,15 @@ class OperandOps a where
         (<=>) :: a -> a -> Int
 
 instance OperandOps Operand where
+        divide :: Operand -> Operand -> Operand
+        divide (IntVal o1) (IntVal o2) = IntVal (o1 `div` o2)
+        divide (FloatVal o1)  (FloatVal o2) = FloatVal (o1 / o2)
+        divide (FloatVal o1) (IntVal o2) = FloatVal (o1 / fromIntegral  o2)
+        divide (IntVal o1) (FloatVal o2) = FloatVal (fromIntegral  o1 / o2)
+
+        -- (IntVal o1) ** (IntVal o2)  = IntVal (o1 ^ o2)
+        -- (FloatVal o1) ** (IntVal o2)  = FloatVal (o1 ^ o2)
+        -- (FloatVal o1) ** (FloatVal o2)  = FloatVal (o1 ^ o2)
         roll :: [Operand] -> [Operand]
         roll s  = reverse (drop 1 revS ++ take 1 revS)
                 where revS = reverse s
@@ -100,7 +111,7 @@ performOp (Op "+") (Stack (o1:o2:s)) = Stack (o2 + o1 : s)
 performOp (Op "-") (Stack (o1:o2:s)) = Stack (o2 - o1 : s)
 performOp (Op "*") (Stack (IntVal o1:StringVal o2:s)) = Stack (StringVal (concat (replicate o1 o2)): s)
 performOp (Op "*") (Stack (o1:o2:s)) = Stack (o2 * o1 : s)
-performOp (Op "/") (Stack (IntVal o1:IntVal o2:s)) = Stack ( IntVal (o2 `div` o1) : s)
+performOp (Op "/") (Stack (o1:o2:s)) = Stack ( divide o2 o1 : s)
 performOp (Op "%") (Stack (IntVal o1:IntVal o2:s)) = Stack ( IntVal (o2 `mod` o1) : s)
 performOp (Op "**") (Stack (IntVal o1:IntVal o2:s)) = Stack ( IntVal (o2 ^ o1) : s)
 performOp (Op "DROP") (Stack (o1:s)) = Stack s
