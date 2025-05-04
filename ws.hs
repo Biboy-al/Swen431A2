@@ -66,7 +66,7 @@ main = do
         args <- getArgs
         contents <- readFile (head args)
         let newName = "output.txt"
-        let tokens = tokenize contents ""
+        let tokens = tokenize contents "" False
         let stack = eval tokens (Stack [])
         -- mapM_ putStrLn  (createToken contents "")
         writeFile newName (printStack (revStack stack) ++ "\n")
@@ -127,13 +127,17 @@ conBool b
         | b == "true" = True
         | b == "false" = False
 
+stripQuotes :: [Char]-> [Char]
+stripQuotes s
+  | length s >= 2 && head s == '"' && last s == '"' = tail (init s)
+  | otherwise = s
 
 -- uses guards to create an operator
 createOperand::   [Char] -> Operand
 createOperand n 
         | isInt n = IntVal (read n)
         | n == "true" || n == "false" = BoolVal (conBool n)
-        | otherwise = StringVal n
+        | otherwise = StringVal (stripQuotes n)
 
 revStack:: Stack -> Stack
 revStack (Stack s) = Stack (reverse s)
@@ -147,15 +151,16 @@ printStack (Stack (s:sx)) = show s ++ "\n" ++ printStack (Stack sx)
 checkNotSpace:: Char -> Bool
 checkNotSpace c = not (isSpace c)
 
-tokenize:: [Char] -> String -> [String]
-tokenize [] s 
+tokenize:: [Char] -> String -> Bool -> [String]
+tokenize [] s _ 
         | null s = []
         |otherwise =[reverse s]
-tokenize (o:ox) s
-        | not (isSpace o) = tokenize ox (o : s) 
-        | not (null s) = reverse s : tokenize ox []
-        | otherwise = tokenize ox []
-
+tokenize (o:ox) s quoted
+        | '"' == o = tokenize ox (o : s) (not quoted)
+        | quoted = tokenize ox (o : s) quoted
+        | not (isSpace o) = tokenize ox (o : s) quoted
+        | not (null s) = reverse s : tokenize ox [] quoted
+        | otherwise = tokenize ox [] quoted
 
 -- Main Evaluation function for the stack
 -- [Char] is the outputfile
