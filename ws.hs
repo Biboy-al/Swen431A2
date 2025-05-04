@@ -108,10 +108,14 @@ performOp (Op "IFELSE") (Stack (o1:o2:o3:s)) =  Stack ( ifelse o1 o3 o2: s)
 performOp (Op "<<") (Stack (IntVal o1:IntVal o2:s)) =  Stack (IntVal (shiftL o2 o1) : s)
 performOp (Op ">>") (Stack (IntVal o1:IntVal o2:s)) =  Stack (IntVal (shiftR o2 o1) : s)
 performOp (Op "^") (Stack (IntVal o1:IntVal o2:s)) =  Stack (IntVal (xor o2 o1) : s)
+
+
+performOp (Op "!") (Stack (BoolVal o1:s)) =  Stack (BoolVal (not o1) : s)
+performOp (Op "~") (Stack (IntVal o1:s)) =  Stack (IntVal (complement o1) : s)
 -- Utility functions for checking types
 isOperator :: [Char] -> Bool
 isOperator c = c `elem` ["+","-","*","**","%","/","DROP","DUP","SWAP", "ROT", "ROLL","ROLLD", "IFELSE",
-        "==", "!=",">","<", ">=","<=","<=>", "&","|", "^", "IFELSE", "<<", ">>", "<<"]
+        "==", "!=",">","<", ">=","<=","<=>", "&","|", "^", "IFELSE", "<<", ">>", "<<", "!", "~"]
 
 isInt :: String -> Bool
 isInt s = case reads s :: [(Int, String)] of
