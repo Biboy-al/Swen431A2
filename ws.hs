@@ -31,8 +31,9 @@ main = do
         args <- getArgs
         contents <- readFile (head args)
         let newName = "output.txt"
-        let stack = eval (process (normSpaces contents)) [] (Stack [])
-        mapM_ putStrLn  (createToken contents "")
+        let tokens = tokenize contents ""
+        let stack = eval tokens (Stack [])
+        -- mapM_ putStrLn  (createToken contents "")
         writeFile newName (printStack stack  ++ "\n")
         
 
@@ -85,28 +86,22 @@ printStack (Stack (s:sx)) = show s ++ printStack (Stack sx)
 checkNotSpace:: Char -> Bool
 checkNotSpace c = not (isSpace c)
 
-createToken:: [Char] -> String -> [String]
-createToken [] s = [reverse s]
-createToken (o:ox) s
-        | o /= ' ' && o /= '\n' = createToken ox (o : s) 
-        | otherwise = reverse s : createToken ox []
+tokenize:: [Char] -> String -> [String]
+tokenize [] s = [reverse s]
+tokenize (o:ox) s
+        | not (isSpace o) = tokenize ox (o : s) 
+        | not (null s) = reverse s : tokenize ox []
+        | otherwise = tokenize ox []
 
 
 -- Main Evaluation function for the stack
 -- [Char] is the outputfile
 -- Stack is an array of operands
-eval:: [Char] -> [Char] -> Stack -> Stack
-eval [] [] s = s
-eval [] op s         
-        | isOperator pushOP = eval [] [] (performOp (Op pushOP) s)
-        | otherwise = eval [] [] (performOp (Push (createOperand pushOP) ) s)
-        where 
-                pushOP = reverse op
-eval (o:ox) op s 
+eval:: [String] -> Stack -> Stack
+eval [] s = s
+eval (o:ox)  s 
         -- If current char is not a newline or space accumalte
-        | checkNotSpace o = eval ox (o:op) s
+        | o == "  " = eval ox s
         -- If next char, accumalate the op
-        | isOperator pushOP = eval ox [] (performOp (Op pushOP) s)
-        | otherwise = eval ox [] (performOp (Push (createOperand pushOP) ) s)
-        where 
-                pushOP = reverse op
+        | isOperator o = eval ox (performOp (Op o) s)
+        | otherwise = eval ox  (performOp (Push (createOperand o) ) s)
