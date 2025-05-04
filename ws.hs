@@ -2,6 +2,7 @@ module Main where
 import System.Environment
 import System.IO  
 import Control.Monad
+import Data.Bits
 import Data.Char (digitToInt, isSpace,isPrint)
 import Text.Parsec.Expr (Operator)
 import Data.List (isInfixOf)
@@ -15,18 +16,22 @@ data Operand = IntVal Int
 class OperandOps a where
         roll:: [a] -> [a]
         rollD :: [a] -> [a]
-        xor :: a -> a -> Bool
+        -- xr :: a -> a -> Bool
         ifelse :: a -> a -> a -> a
+        (<=>) :: a -> a -> Int
 
 instance OperandOps Operand where
         roll :: [Operand] -> [Operand]
         roll s  = reverse (drop 1 revS ++ take 1 revS)
                 where revS = reverse s
-        rollD s = reverse (last revS : init revS)
+        rollD s = reverse(last revS : init revS)
                 where revS = reverse s
-        xor :: Operand -> Operand -> Bool
-        xor (BoolVal o1) (BoolVal o2) = (o1 || o2) && not(o1 && o2)
+        -- xr (BoolVal o1) (BoolVal o2) = (o1 || o2) && not(o1 && o2)
         ifelse  (BoolVal b) o1 o2 = if b then o1 else o2
+        o1 <=> o2 = case compare o1 o2 of
+                LT -> -1
+                EQ -> 0
+                GT -> 1
         
 
 instance Show Operand where
@@ -95,16 +100,18 @@ performOp (Op "<=") (Stack (o1:o2:s)) =  Stack (BoolVal (o2 <= o1) : s)
 performOp (Op "<") (Stack (o1:o2:s)) =  Stack (BoolVal (o2 < o1) : s)
 performOp (Op ">=") (Stack (o1:o2:s)) =  Stack (BoolVal (o2 >= o1) : s)
 performOp (Op ">") (Stack (o1:o2:s)) =  Stack (BoolVal (o2 > o1) : s)
-performOp (Op "^") (Stack (o1:o2:s)) =  Stack (BoolVal (xor o2 o1) : s)
+performOp (Op "<=>") (Stack (o1:o2:s)) =  Stack (IntVal (o2 <=> o1) : s)
+performOp (Op "^") (Stack (BoolVal o1: BoolVal o2:s)) =  Stack (BoolVal ((o1 || o2) && not(o1 && o2)) : s)
 performOp (Op "&") (Stack (BoolVal o1:BoolVal o2:s)) =  Stack (BoolVal (o2 && o1) : s)
 performOp (Op "|") (Stack (BoolVal o1:BoolVal o2:s)) =  Stack (BoolVal (o2 || o1) : s)
 performOp (Op "IFELSE") (Stack (o1:o2:o3:s)) =  Stack ( ifelse o1 o3 o2: s)
-
-
+performOp (Op "<<") (Stack (IntVal o1:IntVal o2:s)) =  Stack (IntVal (shiftL o2 o1) : s)
+performOp (Op ">>") (Stack (IntVal o1:IntVal o2:s)) =  Stack (IntVal (shiftR o2 o1) : s)
+performOp (Op "^") (Stack (IntVal o1:IntVal o2:s)) =  Stack (IntVal (xor o2 o1) : s)
 -- Utility functions for checking types
 isOperator :: [Char] -> Bool
 isOperator c = c `elem` ["+","-","*","**","%","/","DROP","DUP","SWAP", "ROT", "ROLL","ROLLD", "IFELSE",
-        "==", "!=",">","<", ">=","<=","<=>", "&","|", "^", "IFELSE"]
+        "==", "!=",">","<", ">=","<=","<=>", "&","|", "^", "IFELSE", "<<", ">>", "<<"]
 
 isInt :: String -> Bool
 isInt s = case reads s :: [(Int, String)] of
