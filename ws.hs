@@ -13,16 +13,17 @@ data Operand = IntVal Int
 
 class OperandOps a where
         roll:: [a] -> [a]
-        rollD:: [a] -> [a]
+        rollD :: [a] -> [a]
         xor :: a -> a -> Bool
+        ifelse :: a -> a -> a -> a
 
 instance OperandOps Operand where
         roll :: [Operand] -> [Operand]
         roll s  = reverse (drop 1 revS ++ take 1 revS)
                 where revS = reverse s
-        rollD s  = reverse (drop 1 revS ++ take 1 revS)
-                where revS = reverse s
+        rollD s  = reverse (drop 1 s ++ take 1 s)
         xor (BoolVal o1) (BoolVal o2) = (o1 || o2) && not(o1 && o2)
+        ifelse  (BoolVal b) o1 o2 = if b then o1 else o2
         
 
 instance Show Operand where
@@ -84,6 +85,7 @@ performOp (Op "DUP") (Stack (IntVal o1:s)) = Stack (IntVal o1:IntVal o1:s)
 performOp (Op "SWAP") (Stack (o1:o2:s)) = Stack ( o2:o1:s)
 performOp (Op "ROT") (Stack s) = Stack (roll(take 3 s) ++ drop 3 s)
 performOp (Op "ROLL") (Stack (IntVal o1:s)) = Stack (roll(take o1 s) ++ drop o1 s)
+performOp (Op "ROLLD") (Stack (IntVal o1:s)) = Stack (rollD(take o1 s) ++ drop o1 s)
 performOp (Op "==") (Stack (o1:o2:s)) =  Stack (BoolVal (o2 == o1) : s)
 performOp (Op "!=") (Stack (o1:o2:s)) =  Stack (BoolVal (o2 /= o1) : s)
 performOp (Op "<=") (Stack (o1:o2:s)) =  Stack (BoolVal (o2 <= o1) : s)
@@ -93,12 +95,13 @@ performOp (Op ">") (Stack (o1:o2:s)) =  Stack (BoolVal (o2 > o1) : s)
 performOp (Op "^") (Stack (o1:o2:s)) =  Stack (BoolVal (xor o2 o1) : s)
 performOp (Op "&") (Stack (BoolVal o1:BoolVal o2:s)) =  Stack (BoolVal (o2 && o1) : s)
 performOp (Op "|") (Stack (BoolVal o1:BoolVal o2:s)) =  Stack (BoolVal (o2 || o1) : s)
+performOp (Op "IFELSE") (Stack (o1:o2:o3:s)) =  Stack ( ifelse o1 o3 o2: s)
 
 
 -- Utility functions for checking types
 isOperator :: [Char] -> Bool
-isOperator c = c `elem` ["+","-","*","**","%","/","DROP","DUP","SWAP", "ROT", "ROLL", "IFELSE",
-        "==", "!=",">","<", ">=","<=","<=>", "&","|"]
+isOperator c = c `elem` ["+","-","*","**","%","/","DROP","DUP","SWAP", "ROT", "ROLL","ROLLD", "IFELSE",
+        "==", "!=",">","<", ">=","<=","<=>", "&","|", "^", "IFELSE"]
 
 isInt :: String -> Bool
 isInt s = case reads s :: [(Int, String)] of
