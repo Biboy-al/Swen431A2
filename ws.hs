@@ -6,6 +6,7 @@ import Data.Char (digitToInt, isSpace,isPrint)
 import Text.Parsec.Expr (Operator)
 import Data.List (isInfixOf)
 import Text.Read (Lexeme(String))
+import Data.Functor.Reverse (Reverse)
 
 data Operand = IntVal Int
         |BoolVal Bool
@@ -21,7 +22,9 @@ instance OperandOps Operand where
         roll :: [Operand] -> [Operand]
         roll s  = reverse (drop 1 revS ++ take 1 revS)
                 where revS = reverse s
-        rollD s  = reverse (drop 1 s ++ take 1 s)
+        rollD s = reverse (last revS : init revS)
+                where revS = reverse s
+        xor :: Operand -> Operand -> Bool
         xor (BoolVal o1) (BoolVal o2) = (o1 || o2) && not(o1 && o2)
         ifelse  (BoolVal b) o1 o2 = if b then o1 else o2
         
