@@ -1,1 +1,1 @@
-"a" "b" "c" "d" 1 2 > IFELSE
+"Hello" "hello" DUP ROT ROT SWAP DUP ROT == IFELSE

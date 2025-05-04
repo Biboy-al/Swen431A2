@@ -46,7 +46,9 @@ instance Num Operand where
 
 instance Eq Operand where
         IntVal op1 == IntVal op2 = op1 == op2
-        IntVal op1 /= IntVal op2 = op1 /= op2
+
+        StringVal op1 == StringVal op2 = op1 == op2
+
 
 instance Ord Operand where
         compare (IntVal o1) (IntVal o2) = compare o1 o2
@@ -82,14 +84,18 @@ formatFileName s = "output-"++ drop 1 ( dropWhile (/= '-') s)
 -- Performs operaton on the stack based the command
 performOp:: StackOp -> Stack -> Stack
 performOp (Push n) (Stack s) = Stack (n : s)
+performOp (Op "+") (Stack (StringVal o1:StringVal o2:s)) = Stack (StringVal (o2 ++ o1): s)
 performOp (Op "+") (Stack (o1:o2:s)) = Stack (o2 + o1 : s)
 performOp (Op "-") (Stack (o1:o2:s)) = Stack (o2 - o1 : s)
+performOp (Op "*") (Stack (IntVal o1:StringVal o2:s)) = Stack (StringVal (concat (replicate o1 o2)): s)
 performOp (Op "*") (Stack (o1:o2:s)) = Stack (o2 * o1 : s)
 performOp (Op "/") (Stack (IntVal o1:IntVal o2:s)) = Stack ( IntVal (o2 `div` o1) : s)
 performOp (Op "%") (Stack (IntVal o1:IntVal o2:s)) = Stack ( IntVal (o2 `mod` o1) : s)
 performOp (Op "**") (Stack (IntVal o1:IntVal o2:s)) = Stack ( IntVal (o2 ^ o1) : s)
-performOp (Op "DROP") (Stack (IntVal o1:s)) = Stack s
-performOp (Op "DUP") (Stack (IntVal o1:s)) = Stack (IntVal o1:IntVal o1:s)
+performOp (Op "DROP") (Stack (o1:s)) = Stack s
+performOp (Op "DROP") (Stack (StringVal o1:s)) = Stack s
+performOp (Op "DUP") (Stack (o1:s)) = Stack (o1:o1:s)
+performOp (Op "DUP") (Stack (StringVal o1:s)) = Stack (StringVal o1:StringVal o1:s)
 performOp (Op "SWAP") (Stack (o1:o2:s)) = Stack ( o2:o1:s)
 performOp (Op "ROT") (Stack s) = Stack (roll(take 3 s) ++ drop 3 s)
 performOp (Op "ROLL") (Stack (IntVal o1:s)) = Stack (roll(take o1 s) ++ drop o1 s)
