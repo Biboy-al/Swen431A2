@@ -10,6 +10,7 @@ import Text.Read (Lexeme(String))
 import Data.Functor.Reverse (Reverse)
 
 data Operand = IntVal Int
+        | FloatVal Float
         |BoolVal Bool
         |StringVal [Char]
 
@@ -36,13 +37,23 @@ instance OperandOps Operand where
 
 instance Show Operand where
         show (IntVal n) = show n 
+        show (FloatVal n) = show n
         show (StringVal n) = show n
         show (BoolVal n) = parseBool n
 
 instance Num Operand where
         IntVal op1 + IntVal op2 = IntVal (op1 + op2)
+        FloatVal op1 + FloatVal op2 = FloatVal(op1 + op2)
+        FloatVal op1 + IntVal op2 = FloatVal(op1 + fromIntegral op2)
+        IntVal op1 +  FloatVal op2 = FloatVal(fromIntegral op1 +  op2)
         IntVal op1 - IntVal op2 = IntVal (op1 - op2)
+        FloatVal op1 - FloatVal op2 = FloatVal(op1 - op2)
+        IntVal op1 -  FloatVal op2 = FloatVal(fromIntegral op1 -  op2)
         IntVal op1 * IntVal op2 = IntVal (op1 * op2)
+        FloatVal op1 * FloatVal op2 = FloatVal(op1 * op2)
+        IntVal op1 *  FloatVal op2 = FloatVal(fromIntegral op1 *  op2)
+
+        --fromInteger (IntVal op1) = fromInteger op1
 
 instance Eq Operand where
         IntVal op1 == IntVal op2 = op1 == op2
@@ -128,6 +139,11 @@ isInt s = case reads s :: [(Int, String)] of
         [(n, "")] -> True
         _         -> False
 
+isFloat :: String -> Bool
+isFloat s = case reads s :: [(Float, String)] of
+        [(n, "")] -> True
+        _         -> False
+
 conBool :: [Char] -> Bool
 conBool b 
         | b == "true" = True
@@ -142,6 +158,7 @@ stripQuotes s
 createOperand::   [Char] -> Operand
 createOperand n 
         | isInt n = IntVal (read n)
+        | isFloat n = FloatVal (read n)
         | n == "true" || n == "false" = BoolVal (conBool n)
         | otherwise = StringVal (stripQuotes n)
 
