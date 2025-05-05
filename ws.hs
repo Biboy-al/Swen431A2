@@ -16,7 +16,7 @@ data Operand = IntVal Int
         |BoolVal Bool
         |StringVal [Char]
         |VectorVal [Int]
-        |MatrixVal [Operand]
+        |MatrixVal [[Int]]
 
 class OperandOps a where
         divide:: a -> a -> a
@@ -27,6 +27,7 @@ class OperandOps a where
         ifelse :: a -> a -> a -> a
         (<=>) :: a -> a -> Int
         cross :: a -> a -> a
+        trans :: a -> a
 
 instance OperandOps Operand where
         divide :: Operand -> Operand -> Operand
@@ -52,6 +53,10 @@ instance OperandOps Operand where
         
         cross (VectorVal [a1, a2, a3]) (VectorVal [b1,b2,b3]) = VectorVal [a2 * b3 - a3 * b2, a3 * b1 - a1 * b3, a1 * b2 - a2 * b1] 
         
+        --  trans (MatrixVal m
+        -- trans (MatrixVal m) = MatrixVal (map head m : trans (map tail m))
+        
+
 
 instance Show Operand where
         show (IntVal n) = show n 
@@ -74,6 +79,8 @@ instance Num Operand where
         FloatVal op1 * FloatVal op2 = FloatVal(op1 * op2)
         IntVal op1 *  FloatVal op2 = FloatVal(fromIntegral op1 *  op2)
         VectorVal op1 * VectorVal op2 = IntVal(sum (zipWith (*) op1 op2))
+        -- MatrixVal (VectorVal op1) * MatrixVal (VectorVal op2) = MatrixVal( [[sum (zipWith (*) ar bc) | bc <- bt] | ar <= op1]
+        --         where bt = transpose op2
         
 
         --fromInteger (IntVal op1) = fromInteger op1
@@ -194,7 +201,7 @@ createOperand n
         | isFloat n = FloatVal (read n)
         | n == "true" || n == "false" = BoolVal (conBool n)
         | isVector n = VectorVal(read n)
-        | isMatrix n = MatrixVal (map VectorVal (read n))
+        | isMatrix n = MatrixVal (read n)
         | otherwise = StringVal (stripQuotes n)
 
 revStack:: Stack -> Stack
