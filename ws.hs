@@ -1,3 +1,4 @@
+
 module Main where 
 import System.Environment
 import System.IO  
@@ -5,17 +6,16 @@ import Control.Monad
 import Data.Bits
 import Data.Char (digitToInt, isSpace,isPrint)
 import Text.Parsec.Expr (Operator)
-import Data.List (isInfixOf)
+import Data.List (isInfixOf, intersperse)
 import Text.Read (Lexeme(String))
 import Data.Functor.Reverse (Reverse)
-
-data Matrix = Matrix [[Int]]
 
 data Operand = IntVal Int
         | FloatVal Float
         |BoolVal Bool
         |StringVal [Char]
-        |MatrixVal Matrix
+        |VectorVal [Int]
+        |MatrixVal [[Int]]
 
 class OperandOps a where
         divide:: a -> a -> a
@@ -25,6 +25,7 @@ class OperandOps a where
         -- xr :: a -> a -> Bool
         ifelse :: a -> a -> a -> a
         (<=>) :: a -> a -> Int
+        cross :: a -> a -> a
 
 instance OperandOps Operand where
         divide :: Operand -> Operand -> Operand
@@ -48,24 +49,30 @@ instance OperandOps Operand where
                 EQ -> 0
                 GT -> 1
         
+        cross (VectorVal [a1, a2, a3]) (VectorVal [b1,b2,b3]) = VectorVal [a2 * b3 - a3 * b2, a3 * b1 - a1 * b3, a1 * b2 - a2 * b1] 
+        
 
 instance Show Operand where
         show (IntVal n) = show n 
         show (FloatVal n) = show n
         show (StringVal n) = show n
         show (BoolVal n) = parseBool n
+        show (VectorVal n) = "[" ++ concat (intersperse ", " (map show n)) ++ "]"
 
 instance Num Operand where
         IntVal op1 + IntVal op2 = IntVal (op1 + op2)
         FloatVal op1 + FloatVal op2 = FloatVal(op1 + op2)
         FloatVal op1 + IntVal op2 = FloatVal(op1 + fromIntegral op2)
         IntVal op1 +  FloatVal op2 = FloatVal(fromIntegral op1 +  op2)
+        VectorVal op1 + VectorVal op2 = VectorVal(zipWith (+) op1 op2)
         IntVal op1 - IntVal op2 = IntVal (op1 - op2)
         FloatVal op1 - FloatVal op2 = FloatVal(op1 - op2)
         IntVal op1 -  FloatVal op2 = FloatVal(fromIntegral op1 -  op2)
         IntVal op1 * IntVal op2 = IntVal (op1 * op2)
         FloatVal op1 * FloatVal op2 = FloatVal(op1 * op2)
         IntVal op1 *  FloatVal op2 = FloatVal(fromIntegral op1 *  op2)
+        VectorVal op1 * VectorVal op2 = IntVal(sum (zipWith (*) op1 op2))
+        
 
         --fromInteger (IntVal op1) = fromInteger op1
 
@@ -139,14 +146,13 @@ performOp (Op "IFELSE") (Stack (o1:o2:o3:s)) =  Stack ( ifelse o1 o3 o2: s)
 performOp (Op "<<") (Stack (IntVal o1:IntVal o2:s)) =  Stack (IntVal (shiftL o2 o1) : s)
 performOp (Op ">>") (Stack (IntVal o1:IntVal o2:s)) =  Stack (IntVal (shiftR o2 o1) : s)
 performOp (Op "^") (Stack (IntVal o1:IntVal o2:s)) =  Stack (IntVal (xor o2 o1) : s)
-
-
 performOp (Op "!") (Stack (BoolVal o1:s)) =  Stack (BoolVal (not o1) : s)
 performOp (Op "~") (Stack (IntVal o1:s)) =  Stack (IntVal (complement o1) : s)
+performOp (Op "x") (Stack (o1:o2:s)) =  Stack ( cross o2 o1 : s)
 -- Utility functions for checking types
 isOperator :: [Char] -> Bool
 isOperator c = c `elem` ["+","-","*","**","%","/","DROP","DUP","SWAP", "ROT", "ROLL","ROLLD", "IFELSE",
-        "==", "!=",">","<", ">=","<=","<=>", "&","|", "^", "IFELSE", "<<", ">>", "<<", "!", "~"]
+        "==", "!=",">","<", ">=","<=","<=>", "&","|", "^", "IFELSE", "<<", ">>", "<<", "!", "~", "x"]
 
 isInt :: String -> Bool
 isInt s = case reads s :: [(Int, String)] of
@@ -155,6 +161,11 @@ isInt s = case reads s :: [(Int, String)] of
 
 isFloat :: String -> Bool
 isFloat s = case reads s :: [(Float, String)] of
+        [(n, "")] -> True
+        _         -> False
+
+isVector :: String -> Bool
+isVector s = case reads s :: [([Int], String)] of
         [(n, "")] -> True
         _         -> False
 
@@ -174,6 +185,7 @@ createOperand n
         | isInt n = IntVal (read n)
         | isFloat n = FloatVal (read n)
         | n == "true" || n == "false" = BoolVal (conBool n)
+        | isVector n = VectorVal(read n)
         | otherwise = StringVal (stripQuotes n)
 
 revStack:: Stack -> Stack
