@@ -9,10 +9,13 @@ import Data.List (isInfixOf)
 import Text.Read (Lexeme(String))
 import Data.Functor.Reverse (Reverse)
 
+data Matrix = Matrix [[Int]]
+
 data Operand = IntVal Int
         | FloatVal Float
         |BoolVal Bool
         |StringVal [Char]
+        |MatrixVal Matrix
 
 class OperandOps a where
         divide:: a -> a -> a
@@ -90,7 +93,7 @@ main = do
         args <- getArgs
         contents <- readFile (head args)
         let newName = "output.txt"
-        let tokens = tokenize contents "" False
+        let tokens = tokenize contents "" False 0
         let stack = eval tokens (Stack [])
         -- mapM_ putStrLn  (createToken contents "")
         writeFile newName (printStack (revStack stack) ++ "\n")
@@ -185,16 +188,25 @@ printStack (Stack (s:sx)) = show s ++ "\n" ++ printStack (Stack sx)
 checkNotSpace:: Char -> Bool
 checkNotSpace c = not (isSpace c)
 
-tokenize:: [Char] -> String -> Bool -> [String]
-tokenize [] s _ 
+tokenize:: [Char] -> String -> Bool -> Int -> [String]
+tokenize [] s _ _
         | null s = []
         |otherwise =[reverse s]
-tokenize (o:ox) s quoted
-        | '"' == o = tokenize ox (o : s) (not quoted)
-        | quoted = tokenize ox (o : s) quoted
-        | not (isSpace o) = tokenize ox (o : s) quoted
-        | not (null s) = reverse s : tokenize ox [] quoted
-        | otherwise = tokenize ox [] quoted
+tokenize (o:ox) s quoted count
+        -- if it's a open square bracket incriment it 
+        | '[' == o && not quoted = tokenize ox (o : s) quoted (count + 1)
+        -- ig it's a closed square bracker deincriment it
+        | ']' == o && not quoted = tokenize ox (o : s) quoted (count - 1)
+        -- if it's going to be a string keep creating a token until not quated
+        | count > 0 = tokenize ox (o : s) quoted count
+        | '"' == o = tokenize ox (o : s) (not quoted) count
+        -- If we're still in quoated just keep creating the token
+        | quoted = tokenize ox (o : s) quoted count
+        -- if it's not a space keep creating the token
+        | not (isSpace o) = tokenize ox (o : s) quoted count
+        | not (null s) = reverse s : tokenize ox [] quoted count
+        -- if it's a space skip it 
+        | otherwise = tokenize ox [] quoted count
 
 -- Main Evaluation function for the stack
 -- [Char] is the outputfile
