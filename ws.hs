@@ -9,13 +9,14 @@ import Text.Parsec.Expr (Operator)
 import Data.List (isInfixOf, intersperse)
 import Text.Read (Lexeme(String))
 import Data.Functor.Reverse (Reverse)
+import System.Posix (OpenFileFlags(creat))
 
 data Operand = IntVal Int
-        | FloatVal Float
+        |FloatVal Float
         |BoolVal Bool
         |StringVal [Char]
         |VectorVal [Int]
-        |MatrixVal [[Int]]
+        |MatrixVal [Operand]
 
 class OperandOps a where
         divide:: a -> a -> a
@@ -58,6 +59,7 @@ instance Show Operand where
         show (StringVal n) = show n
         show (BoolVal n) = parseBool n
         show (VectorVal n) = "[" ++ concat (intersperse ", " (map show n)) ++ "]"
+        show (MatrixVal n) = "[" ++ concat (intersperse ", " (map show n)) ++ "]"
 
 instance Num Operand where
         IntVal op1 + IntVal op2 = IntVal (op1 + op2)
@@ -169,6 +171,12 @@ isVector s = case reads s :: [([Int], String)] of
         [(n, "")] -> True
         _         -> False
 
+isMatrix :: String -> Bool
+isMatrix s = case reads s :: [([[Int]], String)] of
+        [(n, "")] -> True
+        _         -> False
+
+
 conBool :: [Char] -> Bool
 conBool b 
         | b == "true" = True
@@ -186,6 +194,7 @@ createOperand n
         | isFloat n = FloatVal (read n)
         | n == "true" || n == "false" = BoolVal (conBool n)
         | isVector n = VectorVal(read n)
+        | isMatrix n = MatrixVal (map VectorVal (read n))
         | otherwise = StringVal (stripQuotes n)
 
 revStack:: Stack -> Stack
