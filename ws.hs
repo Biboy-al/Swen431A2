@@ -6,7 +6,7 @@ import Control.Monad
 import Data.Bits
 import Data.Char (digitToInt, isSpace,isPrint)
 import Text.Parsec.Expr (Operator)
-import Data.List (isInfixOf, intersperse)
+import Data.List (isInfixOf, intersperse, transpose)
 import Text.Read (Lexeme(String))
 import Data.Functor.Reverse (Reverse)
 import System.Posix (OpenFileFlags(creat))
@@ -27,7 +27,7 @@ class OperandOps a where
         ifelse :: a -> a -> a -> a
         (<=>) :: a -> a -> Int
         cross :: a -> a -> a
-        trans :: a -> a
+        trans :: a-> a
 
 instance OperandOps Operand where
         divide :: Operand -> Operand -> Operand
@@ -53,8 +53,8 @@ instance OperandOps Operand where
         
         cross (VectorVal [a1, a2, a3]) (VectorVal [b1,b2,b3]) = VectorVal [a2 * b3 - a3 * b2, a3 * b1 - a1 * b3, a1 * b2 - a2 * b1] 
         
-        --  trans (MatrixVal m
-        -- trans (MatrixVal m) = MatrixVal (map head m : trans (map tail m))
+        trans :: Operand -> Operand
+        trans (MatrixVal m) = MatrixVal (transpose m)
         
 
 
@@ -64,7 +64,7 @@ instance Show Operand where
         show (StringVal n) = show n
         show (BoolVal n) = parseBool n
         show (VectorVal n) = "[" ++ concat (intersperse ", " (map show n)) ++ "]"
-        show (MatrixVal n) = "[" ++ concat (intersperse ", " (map show n)) ++ "]"
+        show (MatrixVal n) = "[" ++ concat (intersperse ", " (map show (map VectorVal n))) ++ "]"
 
 instance Num Operand where
         IntVal op1 + IntVal op2 = IntVal (op1 + op2)
@@ -158,10 +158,11 @@ performOp (Op "^") (Stack (IntVal o1:IntVal o2:s)) =  Stack (IntVal (xor o2 o1) 
 performOp (Op "!") (Stack (BoolVal o1:s)) =  Stack (BoolVal (not o1) : s)
 performOp (Op "~") (Stack (IntVal o1:s)) =  Stack (IntVal (complement o1) : s)
 performOp (Op "x") (Stack (o1:o2:s)) =  Stack ( cross o2 o1 : s)
+performOp (Op "TRANSP") (Stack (o1:s)) = Stack (trans o1:s)
 -- Utility functions for checking types
-isOperator :: [Char] -> Bool
+isOperator :: [Char] -> Bool  
 isOperator c = c `elem` ["+","-","*","**","%","/","DROP","DUP","SWAP", "ROT", "ROLL","ROLLD", "IFELSE",
-        "==", "!=",">","<", ">=","<=","<=>", "&","|", "^", "IFELSE", "<<", ">>", "<<", "!", "~", "x"]
+        "==", "!=",">","<", ">=","<=","<=>", "&","|", "^", "IFELSE", "<<", ">>", "<<", "!", "~", "x","TRANSP"]
 
 isInt :: String -> Bool
 isInt s = case reads s :: [(Int, String)] of
