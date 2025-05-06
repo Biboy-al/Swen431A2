@@ -200,7 +200,7 @@ parseLamda lamda (Stack s) = (unwords (map (show . (s !!) . read . filter isDigi
                 count = read (head parts)
                 indices = take count (drop 2 parts)
                 used = map (read . filter isDigit) indices
-                remaining = [x | (i, x) <- zip [0..] s, i notElem used]
+                remaining = [x | (i, x) <- zip [0..] s, i `notElem` used]
 
 -- uses guards to create an operator
 createOperand::   [Char] -> Stack -> Operand
