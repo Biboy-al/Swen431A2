@@ -17,6 +17,7 @@ data Operand = IntVal Int
         |StringVal [Char]
         |VectorVal [Int]
         |MatrixVal [[Int]]
+        |QuoatedVal [Char]
 
 class OperandOps a where
         divide:: a -> a -> a
@@ -65,6 +66,7 @@ instance Show Operand where
         show (BoolVal n) = parseBool n
         show (VectorVal n) = "[" ++ concat (intersperse ", " (map show n)) ++ "]"
         show (MatrixVal n) = "[" ++ concat (intersperse ", " (map show (map VectorVal n))) ++ "]"
+        show (QuoatedVal n) = n
 
 instance Num Operand where
         IntVal op1 + IntVal op2 = IntVal (op1 + op2)
@@ -82,11 +84,6 @@ instance Num Operand where
         MatrixVal op1 * MatrixVal op2 = MatrixVal [[sum (zipWith (*) r c) | c <- transpose op2] | r <- op1]
         MatrixVal op1 * VectorVal op2 = VectorVal [sum (zipWith (*) row op2) | row <- op1]
         VectorVal op1 * MatrixVal op2 = VectorVal [sum (zipWith (*) op1 col) | col <- op2]
-        -- MatrixVal (VectorVal op1) * MatrixVal (VectorVal op2) = MatrixVal( [[sum (zipWith (*) ar bc) | bc <- bt] | ar <= op1]
-        --         where bt = transpose op2
-        
-
-        --fromInteger (IntVal op1) = fromInteger op1
 
 instance Eq Operand where
         IntVal op1 == IntVal op2 = op1 == op2
@@ -162,10 +159,11 @@ performOp (Op "!") (Stack (BoolVal o1:s)) =  Stack (BoolVal (not o1) : s)
 performOp (Op "~") (Stack (IntVal o1:s)) =  Stack (IntVal (complement o1) : s)
 performOp (Op "x") (Stack (o1:o2:s)) =  Stack ( cross o2 o1 : s)
 performOp (Op "TRANSP") (Stack (o1:s)) = Stack (trans o1:s)
+performOp (Op "EVAL") (Stack (QuoatedVal o1:s)) = eval [o1] (Stack s)
 -- Utility functions for checking types
 isOperator :: [Char] -> Bool  
 isOperator c = c `elem` ["+","-","*","**","%","/","DROP","DUP","SWAP", "ROT", "ROLL","ROLLD", "IFELSE",
-        "==", "!=",">","<", ">=","<=","<=>", "&","|", "^", "IFELSE", "<<", ">>", "<<", "!", "~", "x","TRANSP"]
+        "==", "!=",">","<", ">=","<=","<=>", "&","|", "^", "IFELSE", "<<", ">>", "<<", "!", "~", "x","TRANSP", "EVAL"]
 
 isInt :: String -> Bool
 isInt s = case reads s :: [(Int, String)] of
@@ -186,8 +184,6 @@ isMatrix :: String -> Bool
 isMatrix s = case reads s :: [([[Int]], String)] of
         [(n, "")] -> True
         _         -> False
-
-
 conBool :: [Char] -> Bool
 conBool b 
         | b == "true" = True
@@ -201,12 +197,16 @@ stripQuotes s
 -- uses guards to create an operator
 createOperand::   [Char] -> Operand
 createOperand n 
-        | isInt n = IntVal (read n)
-        | isFloat n = FloatVal (read n)
-        | n == "true" || n == "false" = BoolVal (conBool n)
-        | isVector n = VectorVal(read n)
-        | isMatrix n = MatrixVal (read n)
-        | otherwise = StringVal (stripQuotes n)
+        | isInt filteredN = IntVal (read filteredN)
+        | isFloat filteredN = FloatVal (read filteredN)
+        | filteredN == "true" || filteredN == "false" = BoolVal (conBool filteredN)
+        | isVector filteredN = VectorVal(read filteredN)
+        | isMatrix filteredN = MatrixVal (read filteredN)
+        | head filteredN == '"' = StringVal (stripQuotes filteredN)
+        | otherwise = QuoatedVal filteredN
+        where 
+                filteredN = if head n == '\'' then drop 1 n else n
+                
 
 revStack:: Stack -> Stack
 revStack (Stack s) = Stack (reverse s)
