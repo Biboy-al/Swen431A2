@@ -79,6 +79,9 @@ instance Num Operand where
         FloatVal op1 * FloatVal op2 = FloatVal(op1 * op2)
         IntVal op1 *  FloatVal op2 = FloatVal(fromIntegral op1 *  op2)
         VectorVal op1 * VectorVal op2 = IntVal(sum (zipWith (*) op1 op2))
+        MatrixVal op1 * MatrixVal op2 = MatrixVal [[sum (zipWith (*) r c) | c <- transpose op2] | r <- op1]
+        MatrixVal op1 * VectorVal op2 = VectorVal [sum (zipWith (*) row op2) | row <- op1]
+        VectorVal op1 * MatrixVal op2 = VectorVal [sum (zipWith (*) op1 col) | col <- op2]
         -- MatrixVal (VectorVal op1) * MatrixVal (VectorVal op2) = MatrixVal( [[sum (zipWith (*) ar bc) | bc <- bt] | ar <= op1]
         --         where bt = transpose op2
         
