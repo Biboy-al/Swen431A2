@@ -4,7 +4,7 @@ import System.Environment
 import System.IO  
 import Control.Monad
 import Data.Bits
-import Data.Char (digitToInt, isSpace,isPrint)
+import Data.Char (digitToInt, isSpace,isPrint, isDigit)
 import Text.Parsec.Expr (Operator)
 import Data.List (isInfixOf, intersperse, transpose)
 import Text.Read (Lexeme(String))
@@ -18,13 +18,12 @@ data Operand = IntVal Int
         |VectorVal [Int]
         |MatrixVal [[Int]]
         |QuoatedVal [Char]
+        |LamdaVal [Char]
 
 class OperandOps a where
         divide:: a -> a -> a
-        -- (**):: a -> a -> a
         roll:: [a] -> [a]
         rollD :: [a] -> [a]
-        -- xr :: a -> a -> Bool
         ifelse :: a -> a -> a -> a
         (<=>) :: a -> a -> Int
         cross :: a -> a -> a
@@ -37,15 +36,11 @@ instance OperandOps Operand where
         divide (FloatVal o1) (IntVal o2) = FloatVal (o1 / fromIntegral  o2)
         divide (IntVal o1) (FloatVal o2) = FloatVal (fromIntegral  o1 / o2)
 
-        -- (IntVal o1) ** (IntVal o2)  = IntVal (o1 ^ o2)
-        -- (FloatVal o1) ** (IntVal o2)  = FloatVal (o1 ^ o2)
-        -- (FloatVal o1) ** (FloatVal o2)  = FloatVal (o1 ^ o2)
         roll :: [Operand] -> [Operand]
         roll s  = reverse (drop 1 revS ++ take 1 revS)
                 where revS = reverse s
         rollD s = reverse(last revS : init revS)
                 where revS = reverse s
-        -- xr (BoolVal o1) (BoolVal o2) = (o1 || o2) && not(o1 && o2)
         ifelse  (BoolVal b) o1 o2 = if b then o1 else o2
         o1 <=> o2 = case compare o1 o2 of
                 LT -> -1
@@ -67,6 +62,7 @@ instance Show Operand where
         show (VectorVal n) = "[" ++ concat (intersperse ", " (map show n)) ++ "]"
         show (MatrixVal n) = "[" ++ concat (intersperse ", " (map show (map VectorVal n))) ++ "]"
         show (QuoatedVal n) = n
+        show (LamdaVal n) = n
 
 instance Num Operand where
         IntVal op1 + IntVal op2 = IntVal (op1 + op2)
@@ -109,7 +105,7 @@ main = do
         args <- getArgs
         contents <- readFile (head args)
         let newName = "output.txt"
-        let tokens = tokenize contents "" False 0
+        let tokens = tokenize contents "" False False 0
         let stack = eval tokens (Stack [])
         -- mapM_ putStrLn  (createToken contents "")
         writeFile newName (printStack (revStack stack) ++ "\n")
@@ -160,6 +156,9 @@ performOp (Op "~") (Stack (IntVal o1:s)) =  Stack (IntVal (complement o1) : s)
 performOp (Op "x") (Stack (o1:o2:s)) =  Stack ( cross o2 o1 : s)
 performOp (Op "TRANSP") (Stack (o1:s)) = Stack (trans o1:s)
 performOp (Op "EVAL") (Stack (QuoatedVal o1:s)) = eval [o1] (Stack s)
+performOp (Op l) s = eval (tokenize lamda "" False False 0) newStack
+        where
+                (lamda, newStack) = parseLamda l s
 -- Utility functions for checking types
 isOperator :: [Char] -> Bool  
 isOperator c = c `elem` ["+","-","*","**","%","/","DROP","DUP","SWAP", "ROT", "ROLL","ROLLD", "IFELSE",
@@ -194,9 +193,18 @@ stripQuotes s
   | length s >= 2 && head s == '"' && last s == '"' = tail (init s)
   | otherwise = s
 
+parseLamda :: String -> Stack -> (String, Stack)
+parseLamda lamda (Stack s) = (unwords (map (show . (s !!) . read . filter isDigit) (reverse indices)), Stack remaining)
+        where
+                parts = words (filter (`notElem` "{}") lamda)
+                count = read (head parts)
+                indices = take count (drop 2 parts)
+                used = map (read . filter isDigit) indices
+                remaining = [x | (i, x) <- zip [0..] s, i notElem used]
+
 -- uses guards to create an operator
-createOperand::   [Char] -> Operand
-createOperand n 
+createOperand::   [Char] -> Stack -> Operand
+createOperand n s
         | isInt filteredN = IntVal (read filteredN)
         | isFloat filteredN = FloatVal (read filteredN)
         | filteredN == "true" || filteredN == "false" = BoolVal (conBool filteredN)
@@ -220,25 +228,29 @@ printStack (Stack (s:sx)) = show s ++ "\n" ++ printStack (Stack sx)
 checkNotSpace:: Char -> Bool
 checkNotSpace c = not (isSpace c)
 
-tokenize:: [Char] -> String -> Bool -> Int -> [String]
-tokenize [] s _ _
+tokenize:: [Char] -> String -> Bool -> Bool -> Int -> [String]
+tokenize [] s _ _ _
         | null s = []
         |otherwise =[reverse s]
-tokenize (o:ox) s quoted count
+tokenize (o:ox) s quoted brackted count 
+        | '{' == o && not quoted = tokenize ox (o : s) quoted (not brackted) count
+
+        | '}' == o && not quoted = tokenize ox (o : s) quoted (not brackted) count
+        | brackted = tokenize ox (o : s) quoted brackted count
         -- if it's a open square bracket incriment it 
-        | '[' == o && not quoted = tokenize ox (o : s) quoted (count + 1)
+        | '[' == o && not quoted = tokenize ox (o : s) quoted brackted (count + 1)
         -- ig it's a closed square bracker deincriment it
-        | ']' == o && not quoted = tokenize ox (o : s) quoted (count - 1)
+        | ']' == o && not quoted = tokenize ox (o : s) quoted brackted (count - 1)
         -- if it's going to be a string keep creating a token until not quated
-        | count > 0 = tokenize ox (o : s) quoted count
-        | '"' == o = tokenize ox (o : s) (not quoted) count
+        | count > 0 = tokenize ox (o : s) quoted brackted count
+        | '"' == o = tokenize ox (o : s) (not quoted) brackted count
         -- If we're still in quoated just keep creating the token
-        | quoted = tokenize ox (o : s) quoted count
+        | quoted = tokenize ox (o : s) quoted brackted count
         -- if it's not a space keep creating the token
-        | not (isSpace o) = tokenize ox (o : s) quoted count
-        | not (null s) = reverse s : tokenize ox [] quoted count
+        | not (isSpace o) = tokenize ox (o : s) quoted brackted count
+        | not (null s) = reverse s : tokenize ox [] quoted brackted count
         -- if it's a space skip it 
-        | otherwise = tokenize ox [] quoted count
+        | otherwise = tokenize ox [] quoted brackted count
 
 -- Main Evaluation function for the stack
 -- [Char] is the outputfile
@@ -250,4 +262,5 @@ eval (o:ox)  s
         | o == " " && o == "\n" = eval ox s
         -- If next char, accumalate the op
         | isOperator o = eval ox (performOp (Op o) s)
-        | otherwise = eval ox  (performOp (Push (createOperand o) ) s)
+        | head o == '{' = eval ox (performOp (Op o) s)
+        | otherwise = eval ox  (performOp (Push (createOperand o s) ) s)
