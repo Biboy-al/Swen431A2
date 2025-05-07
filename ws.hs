@@ -5,8 +5,7 @@ import System.IO
 import Control.Monad
 import Data.Bits
 import Data.Char (digitToInt, isSpace,isPrint, isDigit)
-import Text.Parsec.Expr (Operator)
-import Data.List (isInfixOf, intersperse, transpose)
+import Data.List (isInfixOf, intersperse, transpose, isPrefixOf)
 import Text.Read (Lexeme(String))
 import Data.Functor.Reverse (Reverse)
 import System.Posix (OpenFileFlags(creat))
@@ -95,6 +94,9 @@ data StackOp = Push Operand
 
 data Stack = Stack [Operand]
 
+instance Show Stack where
+        show (Stack s) = show s
+
 parseBool:: Bool -> String
 parseBool b 
         | b = "true"
@@ -156,9 +158,10 @@ performOp (Op "~") (Stack (IntVal o1:s)) =  Stack (IntVal (complement o1) : s)
 performOp (Op "x") (Stack (o1:o2:s)) =  Stack ( cross o2 o1 : s)
 performOp (Op "TRANSP") (Stack (o1:s)) = Stack (trans o1:s)
 performOp (Op "EVAL") (Stack (QuoatedVal o1:s)) = eval [o1] (Stack s)
-performOp (Op l) s = eval (tokenize lamda "" False False 0) newStack
+performOp (Op l) s = eval (tokenize newLamda "" False False 0) newStack
         where
-                (lamda, newStack) = parseLamda l s
+                (lamda, popped, newStack) = getLamdaParams l s
+                newLamda = parseLamda lamda popped
 -- Utility functions for checking types
 isOperator :: [Char] -> Bool  
 isOperator c = c `elem` ["+","-","*","**","%","/","DROP","DUP","SWAP", "ROT", "ROLL","ROLLD", "IFELSE",
@@ -193,14 +196,27 @@ stripQuotes s
   | length s >= 2 && head s == '"' && last s == '"' = tail (init s)
   | otherwise = s
 
-parseLamda :: String -> Stack -> (String, Stack)
-parseLamda lamda (Stack s) = (unwords (map (show . (s !!) . read . filter isDigit) (reverse indices)), Stack remaining)
+--GP
+parseLamda :: String -> Stack -> String
+parseLamda lamda (Stack s) =  unwords (map replace (words inner))
+  where
+    newStack = reverse s
+    inner = init (tail lamda)  -- removes outer braces
+    replace ('x':ds) | all (`elem` ['0'..'9']) ds =
+      let i = read ds in if i < length newStack then show (newStack !! i) else "x" ++ ds
+    replace token = token
+
+getLamdaParams:: String -> Stack -> (String, Stack, Stack)
+getLamdaParams lamda (Stack s) = (cleanLamda, Stack popped, Stack rest)
         where
-                parts = words (filter (`notElem` "{}") lamda)
-                count = read (head parts)
-                indices = take count (drop 2 parts)
-                used = map (read . filter isDigit) indices
-                remaining = [x | (i, x) <- zip [0..] s, i `notElem` used]
+        n = read (takeWhile (/= '|') (filter (`notElem` " {}") lamda)) 
+        popped = take n s
+        rest = drop n s
+           -- GP
+            -- Remove the "n |" part but keep brackets
+        inner = drop 1 . take (length lamda - 1) $ lamda  -- removes outer {}
+        cleanBody = drop 1 $ dropWhile (/= '|') inner     -- everything after '|'
+        cleanLamda = "{ " ++ cleanBody ++ " }"
 
 -- uses guards to create an operator
 createOperand::   [Char] -> Stack -> Operand
