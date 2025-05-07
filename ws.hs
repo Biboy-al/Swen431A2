@@ -46,7 +46,8 @@ instance OperandOps Operand where
                 EQ -> 0
                 GT -> 1
         
-        cross (VectorVal [a1, a2, a3]) (VectorVal [b1,b2,b3]) = VectorVal [a2 * b3 - a3 * b2, a3 * b1 - a1 * b3, a1 * b2 - a2 * b1] 
+        cross (VectorVal [a1, a2, a3]) (VectorVal [b1,b2,b3]) = 
+                VectorVal [a2 * b3 - a3 * b2, a3 * b1 - a1 * b3, a1 * b2 - a2 * b1] 
         
         trans :: Operand -> Operand
         trans (MatrixVal m) = MatrixVal (transpose m)
@@ -69,6 +70,7 @@ instance Num Operand where
         FloatVal op1 + IntVal op2 = FloatVal(op1 + fromIntegral op2)
         IntVal op1 +  FloatVal op2 = FloatVal(fromIntegral op1 +  op2)
         VectorVal op1 + VectorVal op2 = VectorVal(zipWith (+) op1 op2)
+        MatrixVal op1 + MatrixVal op2 = MatrixVal(zipWith (zipWith (+)) op1 op2)
         IntVal op1 - IntVal op2 = IntVal (op1 - op2)
         FloatVal op1 - FloatVal op2 = FloatVal(op1 - op2)
         IntVal op1 -  FloatVal op2 = FloatVal(fromIntegral op1 -  op2)
@@ -97,6 +99,15 @@ data Stack = Stack [Operand]
 instance Show Stack where
         show (Stack s) = show s
 
+-- Utility function for printing
+revStack:: Stack -> Stack
+revStack (Stack s) = Stack (reverse s)
+
+printStack:: Stack -> String
+printStack (Stack [s]) = show s
+printStack (Stack (s:sx)) = show s ++ "\n" ++ printStack (Stack sx)
+
+
 parseBool:: Bool -> String
 parseBool b 
         | b = "true"
@@ -111,10 +122,6 @@ main = do
         let stack = eval tokens (Stack [])
         -- mapM_ putStrLn  (createToken contents "")
         writeFile newName (printStack (revStack stack) ++ "\n")
-        
-
-process :: [Char] -> [Char]
-process input = input
 
 -- Formats the name of the file to have output at the start
 formatFileName :: String -> String
@@ -158,10 +165,11 @@ performOp (Op "~") (Stack (IntVal o1:s)) =  Stack (IntVal (complement o1) : s)
 performOp (Op "x") (Stack (o1:o2:s)) =  Stack ( cross o2 o1 : s)
 performOp (Op "TRANSP") (Stack (o1:s)) = Stack (trans o1:s)
 performOp (Op "EVAL") (Stack (QuoatedVal o1:s)) = eval [o1] (Stack s)
-performOp (Op l) s = eval (tokenize newLamda "" False False 0) newStack
+performOp (Op l) s = eval (tokenize newLambda "" False False 0) newStack
         where
-                (lamda, popped, newStack) = getLamdaParams l s
-                newLamda = parseLamda lamda popped
+                (lambda, popped, newStack) = getLambdaParams l s
+                newLambda = parseLambda lambda popped
+
 -- Utility functions for checking types
 isOperator :: [Char] -> Bool  
 isOperator c = c `elem` ["+","-","*","**","%","/","DROP","DUP","SWAP", "ROT", "ROLL","ROLLD", "IFELSE",
@@ -190,33 +198,32 @@ conBool :: [Char] -> Bool
 conBool b 
         | b == "true" = True
         | b == "false" = False
-
-stripQuotes :: [Char]-> [Char]
+        
+stripQuotes:: [Char] -> [Char]
 stripQuotes s
-  | length s >= 2 && head s == '"' && last s == '"' = tail (init s)
-  | otherwise = s
+        | length s >= 2 && head s == '"' && last s == '"' = tail (init s)
+        | otherwise = s
 
---GP
-parseLamda :: String -> Stack -> String
-parseLamda lamda (Stack s) =  unwords (map replace (words inner))
-  where
-    newStack = reverse s
-    inner = init (tail lamda)  -- removes outer braces
-    replace ('x':ds) | all (`elem` ['0'..'9']) ds =
-      let i = read ds in if i < length newStack then show (newStack !! i) else "x" ++ ds
-    replace token = token
-
-getLamdaParams:: String -> Stack -> (String, Stack, Stack)
-getLamdaParams lamda (Stack s) = (cleanLamda, Stack popped, Stack rest)
+-- Function that takes a set of operators and replaces parameters
+parseLambda:: String -> Stack -> String
+parseLambda lambda (Stack s) = unwords (map replace (words inner))
         where
-        n = read (takeWhile (/= '|') (filter (`notElem` " {}") lamda)) 
+        newStack = reverse s
+        inner = init (tail lambda)
+        replace ('x':ds) | all (`elem` ['0'..'9']) ds =
+                let i = read ds in if i < length newStack then show (newStack !! i) else "x" ++ ds
+        replace token = token
+
+-- gets lambda epxression poping the number of arguments needed
+getLambdaParams:: String -> Stack -> (String, Stack, Stack)
+getLambdaParams lambda (Stack s) = (cleanLambda, Stack popped, Stack rest)
+        where
+        n = read (takeWhile (/= '|') (filter (`notElem` " {}") lambda)) 
         popped = take n s
         rest = drop n s
-           -- GP
-            -- Remove the "n |" part but keep brackets
-        inner = drop 1 . take (length lamda - 1) $ lamda  -- removes outer {}
-        cleanBody = drop 1 $ dropWhile (/= '|') inner     -- everything after '|'
-        cleanLamda = "{ " ++ cleanBody ++ " }"
+        inner = drop 1 . take (length lambda - 1) $ lambda
+        cleanBody = drop 1 ( dropWhile (/='|') inner )
+        cleanLambda = "{ " ++ cleanBody ++ " }"
 
 -- uses guards to create an operator
 createOperand::   [Char] -> Stack -> Operand
@@ -232,15 +239,6 @@ createOperand n s
                 filteredN = if head n == '\'' then drop 1 n else n
                 
 
-revStack:: Stack -> Stack
-revStack (Stack s) = Stack (reverse s)
-
--- Prints the stack
-printStack:: Stack -> String
-printStack (Stack [s]) = show s
-printStack (Stack (s:sx)) = show s ++ "\n" ++ printStack (Stack sx)
-
-
 checkNotSpace:: Char -> Bool
 checkNotSpace c = not (isSpace c)
 
@@ -249,9 +247,11 @@ tokenize [] s _ _ _
         | null s = []
         |otherwise =[reverse s]
 tokenize (o:ox) s quoted brackted count 
-        | '{' == o && not quoted = tokenize ox (o : s) quoted (not brackted) count
 
+        --If it's curly braces make brackted true
+        | '{' == o && not quoted = tokenize ox (o : s) quoted (not brackted) count
         | '}' == o && not quoted = tokenize ox (o : s) quoted (not brackted) count
+        -- if it's bracketed keep creating token
         | brackted = tokenize ox (o : s) quoted brackted count
         -- if it's a open square bracket incriment it 
         | '[' == o && not quoted = tokenize ox (o : s) quoted brackted (count + 1)
