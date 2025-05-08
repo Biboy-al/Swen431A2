@@ -14,8 +14,8 @@ data Operand = IntVal Int
         |FloatVal Float
         |BoolVal Bool
         |StringVal [Char]
-        |VectorVal [Int]
-        |MatrixVal [[Int]]
+        |VectorVal [Operand]
+        |MatrixVal [[Operand]]
         |QuoatedVal [Char]
         |LamdaVal [Char]
 
@@ -29,18 +29,16 @@ class OperandOps a where
         trans :: a-> a
 
 instance OperandOps Operand where
-        divide :: Operand -> Operand -> Operand
+
         divide (IntVal o1) (IntVal o2) = IntVal (o1 `div` o2)
         divide (FloatVal o1)  (FloatVal o2) = FloatVal (o1 / o2)
         divide (FloatVal o1) (IntVal o2) = FloatVal (o1 / fromIntegral  o2)
         divide (IntVal o1) (FloatVal o2) = FloatVal (fromIntegral  o1 / o2)
 
-        roll :: [Operand] -> [Operand]
         roll s  = reverse (drop 1 revS ++ take 1 revS)
                 where revS = reverse s
         rollD s = reverse(last revS : init revS)
                 where revS = reverse s
-        ifelse :: Operand -> Operand -> Operand -> Operand
         ifelse  (BoolVal b) o1 o2 = if b then o1 else o2
         o1 <=> o2 = case compare o1 o2 of
                 LT -> -1
@@ -49,8 +47,6 @@ instance OperandOps Operand where
         
         cross (VectorVal [a1, a2, a3]) (VectorVal [b1,b2,b3]) = 
                 VectorVal [a2 * b3 - a3 * b2, a3 * b1 - a1 * b3, a1 * b2 - a2 * b1] 
-        
-        trans :: Operand -> Operand
         trans (MatrixVal m) = MatrixVal (transpose m)
         
 
@@ -61,7 +57,9 @@ instance Show Operand where
         show (StringVal n) = show n
         show (BoolVal n) = parseBool n
         show (VectorVal n) = "[" ++ concat (intersperse ", " (map show n)) ++ "]"
-        show (MatrixVal n) = "[" ++ concat (intersperse ", " (map show (map VectorVal n))) ++ "]"
+        show (MatrixVal n) = "[" ++ concat (intersperse ", " (map showRow n)) ++ "]"
+                where
+                        showRow row = "[" ++ concat (intersperse ", " (map show row)) ++ "]"
         show (QuoatedVal n) = n
         show (LamdaVal n) = n
 
@@ -70,18 +68,23 @@ instance Num Operand where
         FloatVal op1 + FloatVal op2 = FloatVal(op1 + op2)
         FloatVal op1 + IntVal op2 = FloatVal(op1 + fromIntegral op2)
         IntVal op1 +  FloatVal op2 = FloatVal(fromIntegral op1 +  op2)
-        VectorVal op1 + VectorVal op2 = VectorVal(zipWith (+) op1 op2)
+        VectorVal op1 + VectorVal op2 = VectorVal (zipWith (+) op1 op2)
         MatrixVal op1 + MatrixVal op2 = MatrixVal(zipWith (zipWith (+)) op1 op2)
         IntVal op1 - IntVal op2 = IntVal (op1 - op2)
         FloatVal op1 - FloatVal op2 = FloatVal(op1 - op2)
-        IntVal op1 -  FloatVal op2 = FloatVal(fromIntegral op1 -  op2)
+        IntVal op1 -  FloatVal op2 = FloatVal(fromIntegral op1 - op2)
+        FloatVal op1 - IntVal op2 = FloatVal(op1 - fromIntegral op2)
+        VectorVal op1 - VectorVal op2 = VectorVal (zipWith (-) op1 op2)
+        MatrixVal op1 - MatrixVal op2 = MatrixVal(zipWith (zipWith (-)) op1 op2)
         IntVal op1 * IntVal op2 = IntVal (op1 * op2)
         FloatVal op1 * FloatVal op2 = FloatVal(op1 * op2)
         IntVal op1 *  FloatVal op2 = FloatVal(fromIntegral op1 *  op2)
-        VectorVal op1 * VectorVal op2 = IntVal(sum (zipWith (*) op1 op2))
+        VectorVal op1 * VectorVal op2 = sum (zipWith (*) op1 op2)
         MatrixVal op1 * MatrixVal op2 = MatrixVal [[sum (zipWith (*) r c) | c <- transpose op2] | r <- op1]
         MatrixVal op1 * VectorVal op2 = VectorVal [sum (zipWith (*) row op2) | row <- op1]
         VectorVal op1 * MatrixVal op2 = VectorVal [sum (zipWith (*) op1 col) | col <- op2]
+
+        fromInteger o = IntVal(fromInteger o)
 
 instance Eq Operand where
         IntVal op1 == IntVal op2 = op1 == op2
@@ -186,15 +189,26 @@ isFloat s = case reads s :: [(Float, String)] of
         [(n, "")] -> True
         _         -> False
 
-isVector :: String -> Bool
-isVector s = case reads s :: [([Int], String)] of
+isVectorInt :: String -> Bool
+isVectorInt s = case reads s :: [([Int], String)] of
         [(n, "")] -> True
         _         -> False
 
-isMatrix :: String -> Bool
-isMatrix s = case reads s :: [([[Int]], String)] of
+isVectorFloat :: String -> Bool
+isVectorFloat s = case reads s :: [([Float], String)] of
         [(n, "")] -> True
         _         -> False
+
+isMatrixInt :: String -> Bool
+isMatrixInt s = case reads s :: [([[Int]], String)] of
+        [(n, "")] -> True
+        _         -> False
+
+isMatrixFloat :: String -> Bool
+isMatrixFloat s = case reads s :: [([[Float]], String)] of
+        [(n, "")] -> True
+        _         -> False
+
 conBool :: [Char] -> Bool
 conBool b 
         | b == "true" = True
@@ -232,8 +246,10 @@ createOperand n s
         | isInt filteredN = IntVal (read filteredN)
         | isFloat filteredN = FloatVal (read filteredN)
         | filteredN == "true" || filteredN == "false" = BoolVal (conBool filteredN)
-        | isVector filteredN = VectorVal(read filteredN)
-        | isMatrix filteredN = MatrixVal (read filteredN)
+        | isVectorInt filteredN = VectorVal(map IntVal (read filteredN))
+        | isVectorFloat filteredN = VectorVal(map FloatVal (read filteredN))
+        | isMatrixInt filteredN = MatrixVal (map (map IntVal) (read filteredN))
+        | isMatrixFloat filteredN = MatrixVal (map (map FloatVal) (read filteredN))
         | head filteredN == '"' = StringVal (stripQuotes filteredN)
         | otherwise = QuoatedVal filteredN
         where 
