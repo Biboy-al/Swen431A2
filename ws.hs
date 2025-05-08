@@ -40,6 +40,7 @@ instance OperandOps Operand where
                 where revS = reverse s
         rollD s = reverse(last revS : init revS)
                 where revS = reverse s
+        ifelse :: Operand -> Operand -> Operand -> Operand
         ifelse  (BoolVal b) o1 o2 = if b then o1 else o2
         o1 <=> o2 = case compare o1 o2 of
                 LT -> -1
@@ -112,12 +113,12 @@ parseBool:: Bool -> String
 parseBool b 
         | b = "true"
         | not b = "false"
--- formatFileName (head args)
+
 main :: IO ()
 main = do 
         args <- getArgs
         contents <- readFile (head args)
-        let newName = "output.txt"
+        let newName = formatFileName (head args)
         let tokens = tokenize contents "" False False 0
         let stack = eval tokens (Stack [])
         -- mapM_ putStrLn  (createToken contents "")
@@ -237,10 +238,6 @@ createOperand n s
         | otherwise = QuoatedVal filteredN
         where 
                 filteredN = if head n == '\'' then drop 1 n else n
-                
-
-checkNotSpace:: Char -> Bool
-checkNotSpace c = not (isSpace c)
 
 tokenize:: [Char] -> String -> Bool -> Bool -> Int -> [String]
 tokenize [] s _ _ _
